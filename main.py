@@ -36,24 +36,23 @@ def main():
             reviews_button.click()
             time.sleep(10)
 
-        def open_review_details(driver):
-            review_details_button = driver.find_element(By.CLASS_NAME, 'Review_detailesLink__UQAEU')
-            review_details_button.click()
-            time.sleep(10)
-
         def expand_review(driver):
-            expand_review_button = driver.find_element(By.XPATH, "//button[contains(normalize-space(.), 'Развернуть отзыв')]")
-            expand_review_button.click()
-            time.sleep(10)
+            expand_review_button = driver.find_elements(By.XPATH, "//button[contains(normalize-space(.), 'Развернуть отзыв')]")
+            for button in expand_review_button:
+                button.click()
+                time.sleep(10)
 
         def get_ratings(driver):
-            labels = driver.find_elements(By.CSS_SELECTOR, '.Review_detailedWrapper__DyLCF p:first-child')
-            values = driver.find_elements(By.CSS_SELECTOR, 'p.Review_detailedValue__hym1s')
+            labels = driver.find_elements(By.CSS_SELECTOR, '.Rating_detailedWrapper__D78k3 p:first-child')
+            values = driver.find_elements(By.CSS_SELECTOR, '.Rating_detailedWrapper__D78k3 p:last-child')
             return {label.text.strip(): value.text.strip() for label, value in zip(labels, values)}
 
         def get_review_text(driver):
-            review = driver.find_element(By.CLASS_NAME, 'Review_inner__Fy5av')
-            return review.text.strip()
+            reviews = driver.find_elements(By.CLASS_NAME, 'Review_inner__Fy5av')
+            texts = []
+            for review in reviews:
+                texts.append(review.text.strip())
+            return texts
 
         hotel_links = []
 
@@ -71,42 +70,53 @@ def main():
                 writer = csv.writer(file, delimiter=',')
 
                 writer.writerow([
-                    'Cleanliness',
-                    'Location',
-                    'Price/Quality',
-                    'Service',
-                    'Room',
-                    'Food',
-                    'Text',
+                    'review_id',
+                    'cleanliness',
+                    'hygiene',
+                    'location',
+                    'price',
+                    'service',
+                    'room',
+                    'food',
+                    'wifi',
+                    'text',
                 ])
+                empty_ratings = [''] * 8
+                review_id = 1
 
                 for hotel_link in hotel_links:
-
                     try:
                         print(f'\nОбрабатываем: {hotel_link}')
 
                         driver.get(hotel_link)
                         time.sleep(10)
                         get_reviews(driver)
-                        open_review_details(driver)
                         expand_review(driver)
                         ratings = get_ratings(driver)
-                        review_text = get_review_text(driver)
+                        review_texts = get_review_text(driver)
 
-                        row = [
+                        rating_row = [
                             ratings.get('Чистота', ''),
+                            ratings.get('Средства гигиены', ''),
                             ratings.get('Расположение', ''),
                             ratings.get('Цена/Качество', ''),
                             ratings.get('Обслуживание', ''),
                             ratings.get('Номер', ''),
                             ratings.get('Питание', ''),
-                            review_text
+                            ratings.get('Качество Wi-Fi', ''),
                         ]
 
-                        writer.writerow(row)
-                        file.flush()
+                        rows = [[''] + rating_row] + [
+                            [review_id + i] + empty_ratings + [text]
+                            for i, text in enumerate(review_texts)
+                        ]
+                        review_id += len(review_texts)
 
-                        print(f'Получены оценки: {row}')
+                        for row in rows:
+                            writer.writerow(row)
+                            file.flush()
+
+                            print(f'Получены оценки: {row}')
 
                     except Exception as ex:
                         print(f'Ошибка при обработке отеля {hotel_link}: {ex}')
