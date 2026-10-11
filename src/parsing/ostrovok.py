@@ -45,9 +45,18 @@ class OstrovokParser:
             time.sleep(10)
 
     def get_ratings(self):
-        labels = self.driver.find_elements(By.CSS_SELECTOR, '.Rating_detailedWrapper__D78k3 p:first-child')
-        values = self.driver.find_elements(By.CSS_SELECTOR, '.Rating_detailedWrapper__D78k3 p:last-child')
-        return {label.text.strip(): value.text.strip() for label, value in zip(labels, values)}
+        ratings = self.driver.find_elements(By.XPATH, '//*[@id="__next"]/div/div[3]/div[1]/div[8]/div[2]/div/ul/li//div/div/div[2]/div[1]/div[1]/div/div/span')
+        texts = []
+        for rating in ratings:
+            texts.append(rating.text.strip())
+        return texts
+
+    def review_ratings_description(self):
+        ratings = self.driver.find_elements(By.CLASS_NAME, 'Review_ratingDescription__MTVnx')
+        texts = []
+        for rating in ratings:
+            texts.append(rating.text.strip())
+        return texts
 
     def get_review_text(self):
         reviews = self.driver.find_elements(By.CLASS_NAME, 'Review_inner__Fy5av')
@@ -78,22 +87,15 @@ class OstrovokParser:
     def save_reviews_to_csv(self, hotel_links):
         filename = 'hotel_reviews.csv'
         with open(filename, 'w', newline='', encoding='utf-8') as file:
-
             writer = csv.writer(file, delimiter=',')
 
             writer.writerow([
                 'review_id',
-                'cleanliness',
-                'hygiene',
-                'location',
-                'price',
-                'service',
-                'room',
-                'food',
-                'wifi',
+                'rating_score',
+                'rating_description',
                 'text',
             ])
-            empty_ratings = [''] * 8
+
             review_id = 1
 
             for hotel_link in hotel_links:
@@ -101,20 +103,18 @@ class OstrovokParser:
                     self.driver.get(hotel_link)
                     time.sleep(10)
                     self.get_reviews()
-                    ratings = self.get_ratings()
 
-                    rating_row = [
-                        ratings.get('Чистота', ''),
-                        ratings.get('Средства гигиены', ''),
-                        ratings.get('Расположение', ''),
-                        ratings.get('Цена/Качество', ''),
-                        ratings.get('Обслуживание', ''),
-                        ratings.get('Номер', ''),
-                        ratings.get('Питание', ''),
-                        ratings.get('Качество Wi-Fi', ''),
-                    ]
+                    rating_scores = self.get_ratings()
+                    rating_descs = self.review_ratings_description()
 
-                    rows = [[''] + rating_row]
+                    score = ''
+                    if rating_scores:
+                        score = rating_scores[0]
+
+                    desc = ''
+                    if rating_descs:
+                        desc = rating_descs[0]
+
                     previous_texts = []
                     page = 1
 
@@ -126,21 +126,19 @@ class OstrovokParser:
                             logging.info('Last page reached')
                             break
 
-                        rows += [
-                            [review_id + i] + empty_ratings + [text]
-                            for i, text in enumerate(review_texts)
-                        ]
-                        review_id += len(review_texts)
-
-                        for row in rows:
-                            writer.writerow(row)
+                        for text in review_texts:
+                            writer.writerow([
+                                review_id,
+                                score,
+                                desc,
+                                text
+                            ])
                             file.flush()
-
-                            logging.info("Received ratings: %s", row)
+                            logging.info("Saved review ID: %s", review_id)
+                            review_id += 1
 
                         logging.info("Page %s: %s reviews saved", page, len(review_texts))
 
-                        rows = []
                         previous_texts = review_texts
                         self.go_to_next_page()
                         page += 1
