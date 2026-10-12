@@ -4,7 +4,7 @@ import time
 
 from selenium.webdriver.common.by import By
 
-from src.parsing.data_processor import remove_emoji
+from src.parsing.data_processor import clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -129,13 +129,13 @@ class OstrovokParser:
                             break
 
                         for text in review_texts:
-                            cleaned_text = remove_emoji(text)
+                            cleaned_text = clean_text(text)
                             if cleaned_text:
                                 writer.writerow([
                                     review_id,
                                     score,
                                     desc,
-                                    text
+                                    cleaned_text
                                 ])
                                 file.flush()
                                 logging.info("Saved review ID: %s", review_id)
